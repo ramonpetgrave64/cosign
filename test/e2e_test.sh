@@ -46,7 +46,7 @@ cat <<EOF > /tmp/fulcio-config.json
 EOF
 popd
 
-pushd $HOME
+pushd ../
 
 echo "downloading service repos"
 for repo in rekor fulcio; do
@@ -88,7 +88,7 @@ cleanup_services() {
     echo "cleaning up"
     cleanup_oidc
     for repo in rekor fulcio; do
-        pushd $HOME/$repo
+        pushd ../$repo
         ${docker_compose} down
         popd
     done
