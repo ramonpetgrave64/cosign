@@ -30,7 +30,7 @@ cleanup_oidc() {
     echo "cleaning up oidc"
     docker stop fakeoidc
 }
-trap cleanup_oidc EXIT
+# trap cleanup_oidc EXIT
 oidc_ip=$(docker inspect fakeoidc | jq -r '.[0].NetworkSettings.Networks.fulcio_default.IPAddress')
 export OIDC_URL="http://${oidc_ip}:8080"
 cat <<EOF > /tmp/fulcio-config.json
@@ -93,7 +93,7 @@ cleanup_services() {
         popd
     done
 }
-trap cleanup_services EXIT
+# trap cleanup_services EXIT
 
 echo
 echo "running tests"
@@ -107,7 +107,7 @@ cleanup() {
     cleanup_services
     docker rm -f registry
 }
-trap cleanup EXIT
+# trap cleanup EXIT
 docker run -d -p 5000:5000 --restart always -e REGISTRY_STORAGE_DELETE_ENABLED=true --name registry registry:latest
 export COSIGN_TEST_REPO=localhost:5000
 go test -tags=e2e -v ./test/... -run TestSignVerifyClean
