@@ -23,21 +23,21 @@ fi
 
 echo "setting up OIDC provider"
 pushd ./test/fakeoidc
-oidcimg=$(ko build main.go --local)
-docker network ls | grep fulcio_default || docker network create fulcio_default --label "com.docker.compose.network=fulcio_default"
-docker run -d --rm -p 8080:8080 --network fulcio_default --name fakeoidc $oidcimg
+# oidcimg=$(ko build main.go --local --base-import-paths)
+ko build --local --base-import-paths
+# docker network ls | grep fulcio_default || docker network create fulcio_default --label "com.docker.compose.net work=fulcio_default"
+docker start fakeoidc || docker run -d --rm -p 8080:8080 --name fakeoidc ko.local/fakeoidc
 cleanup_oidc() {
     echo "cleaning up oidc"
     docker stop fakeoidc
 }
 # trap cleanup_oidc EXIT
-oidc_ip=$(docker inspect fakeoidc | jq -r '.[0].NetworkSettings.Networks.fulcio_default.IPAddress')
-export OIDC_URL="http://${oidc_ip}:8080"
+export OIDC_URL="http://fakeoidc:8080"
 cat <<EOF > /tmp/fulcio-config.json
 {
   "OIDCIssuers": {
-    "$OIDC_URL": {
-      "IssuerURL": "$OIDC_URL",
+    "http://fakeoidc:8080": {
+      "IssuerURL": "http://fakeoidc:8080",
       "ClientID": "sigstore",
       "Type": "email"
     }
@@ -64,10 +64,6 @@ export FULCIO_METRICS_PORT=2113
 export FULCIO_CONFIG=/tmp/fulcio-config.json
 for repo in rekor fulcio; do
     pushd $repo
-    if [ "$repo" == "fulcio" ]; then
-       yq -i e '.networks={"default":{ "name":"fulcio_default","external":true }}' docker-compose.yml
-       yq -i e '.services.fulcio-server.networks=["default"]' docker-compose.yml
-    fi
     ${docker_compose} up -d
     echo -n "waiting up to 60 sec for system to start"
     count=0
@@ -84,6 +80,9 @@ for repo in rekor fulcio; do
     done
     popd
 done
+docker network disconnect fulcio_default fakeoidc || true
+docker network connect --alias fakeoidc fulcio_default fakeoidc
+
 cleanup_services() {
     echo "cleaning up"
     cleanup_oidc
