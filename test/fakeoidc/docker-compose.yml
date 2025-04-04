@@ -18,3 +18,10 @@ services:
     build: .
     ports:
       - 8080:8080
+    healthcheck:
+      test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:8080/keys"]
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+      # requires docker engine >= v25
+      # start_interval: 1s
