@@ -22,17 +22,18 @@ if ! ${docker_compose} version >/dev/null 2>&1; then
 fi
 
 echo "setting up OIDC provider"
-pushd ./test/fakeoidc
-oidcimg=$(ko build main.go --local)
-docker network ls | grep fulcio_default || docker network create fulcio_default --label "com.docker.compose.network=fulcio_default"
-docker run -d --rm -p 8080:8080 --network fulcio_default --name fakeoidc $oidcimg
-cleanup_oidc() {
-    echo "cleaning up oidc"
-    docker stop fakeoidc
-}
-trap cleanup_oidc EXIT
-oidc_ip=$(docker inspect fakeoidc | jq -r '.[0].NetworkSettings.Networks.fulcio_default.IPAddress')
-export OIDC_URL="http://${oidc_ip}:8080"
+# pushd ./test/fakeoidc
+# oidcimg=$(ko build main.go --local)
+# docker network ls | grep fulcio_default || docker network create fulcio_default --label "com.docker.compose.network=fulcio_default"
+# docker run -d --rm -p 8080:8080 --network fulcio_default --name fakeoidc $oidcimg
+# cleanup_oidc() {
+#     echo "cleaning up oidc"
+#     docker stop fakeoidc
+# }
+# trap cleanup_oidc EXIT
+# oidc_ip=$(docker inspect fakeoidc | jq -r '.[0].NetworkSettings.Networks.fulcio_default.IPAddress')
+# export OIDC_URL="http://${oidc_ip}:8080"
+export OIDC_URL="http://fakeoidc:8080"
 cat <<EOF > /tmp/fulcio-config.json
 {
   "OIDCIssuers": {
@@ -44,7 +45,7 @@ cat <<EOF > /tmp/fulcio-config.json
   }
 }
 EOF
-popd
+# popd
 
 pushd $HOME
 
@@ -64,10 +65,10 @@ export FULCIO_METRICS_PORT=2113
 export FULCIO_CONFIG=/tmp/fulcio-config.json
 for repo in rekor fulcio; do
     pushd $repo
-    if [ "$repo" == "fulcio" ]; then
-       yq -i e '.networks={"default":{ "name":"fulcio_default","external":true }}' docker-compose.yml
-       yq -i e '.services.fulcio-server.networks=["default"]' docker-compose.yml
-    fi
+    # if [ "$repo" == "fulcio" ]; then
+    #    yq -i e '.networks={"default":{ "name":"fulcio_default","external":true }}' docker-compose.yml
+    #    yq -i e '.services.fulcio-server.networks=["default"]' docker-compose.yml
+    # fi
     ${docker_compose} up -d
     echo -n "waiting up to 60 sec for system to start"
     count=0
@@ -99,7 +100,7 @@ echo
 echo "running tests"
 
 popd
-go test -tags=e2e -v -race ./test/...
+go test -tags=e2e -race ./test/...
 
 # Test on a private registry
 echo "testing sign/verify/clean on private registry"
@@ -110,7 +111,7 @@ cleanup() {
 trap cleanup EXIT
 docker run -d -p 5000:5000 --restart always -e REGISTRY_STORAGE_DELETE_ENABLED=true --name registry registry:latest
 export COSIGN_TEST_REPO=localhost:5000
-go test -tags=e2e -v ./test/... -run TestSignVerifyClean
+go test -tags=e2e ./test/... -run TestSignVerifyClean
 
 # Run the built container to make sure it doesn't crash
 make ko-local
